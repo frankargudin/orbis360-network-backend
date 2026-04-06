@@ -193,6 +193,27 @@ class RCAResultOut(BaseModel):
     reasoning: str
 
 
+# ─── Alert Thresholds ──────────────────────────────────────────────────────────
+
+
+class ThresholdCreate(BaseModel):
+    device_id: UUID
+    metric_name: str  # latency_ms, packet_loss_pct, cpu_usage_pct, memory_usage_pct
+    warning_value: float | None = None
+    critical_value: float | None = None
+    enabled: bool = True
+
+
+class ThresholdOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    device_id: UUID
+    metric_name: str
+    warning_value: float | None
+    critical_value: float | None
+    enabled: bool
+
+
 # ─── SSH / Reboot ──────────────────────────────────────────────────────────────
 
 

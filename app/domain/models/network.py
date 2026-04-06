@@ -256,6 +256,28 @@ class Incident(Base, UUIDMixin, TimestampMixin):
     )
 
 
+# ─── Alert Threshold ────────────────────────────────────────────────────────────
+
+
+class AlertThreshold(Base, UUIDMixin, TimestampMixin):
+    """Configurable thresholds per device per metric.
+    metric_name: 'latency_ms', 'packet_loss_pct', 'cpu_usage_pct', 'memory_usage_pct'
+    """
+    __tablename__ = "alert_thresholds"
+
+    device_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("devices.id", ondelete="CASCADE"), nullable=False
+    )
+    metric_name: Mapped[str] = mapped_column(String(50), nullable=False)
+    warning_value: Mapped[float | None] = mapped_column(Float)
+    critical_value: Mapped[float | None] = mapped_column(Float)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    __table_args__ = (
+        Index("ix_thresholds_device", "device_id"),
+    )
+
+
 # ─── User ───────────────────────────────────────────────────────────────────────
 
 

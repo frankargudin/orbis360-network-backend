@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.core.events import ws_manager
 from app.domain.models.network import (
+    AlertThreshold,
     Device,
     DeviceStatus,
     Incident,
@@ -165,6 +166,9 @@ class NetworkMonitorWorker:
             )
             session.add(metric)
 
+            # Check thresholds
+            await self._check_thresholds(session, device, metric, now)
+
             # Recovery — auto-resolve open incidents for this device
             if previous_status in (DeviceStatus.DOWN, DeviceStatus.DEGRADED):
                 open_incidents = await session.execute(
@@ -217,6 +221,71 @@ class NetworkMonitorWorker:
                 device.status = DeviceStatus.DEGRADED
 
         session.add(device)
+
+    async def _check_thresholds(self, session: AsyncSession, device: Device, metric: Metric, now):
+        """Check if any metric exceeds configured thresholds and create incidents."""
+        result = await session.execute(
+            select(AlertThreshold).where(
+                AlertThreshold.device_id == device.id,
+                AlertThreshold.enabled == True,
+            )
+        )
+        thresholds = result.scalars().all()
+
+        metric_values = {
+            "latency_ms": metric.latency_ms,
+            "packet_loss_pct": metric.packet_loss_pct,
+            "cpu_usage_pct": metric.cpu_usage_pct,
+            "memory_usage_pct": metric.memory_usage_pct,
+        }
+
+        metric_labels = {
+            "latency_ms": "Latencia",
+            "packet_loss_pct": "Pérdida de paquetes",
+            "cpu_usage_pct": "CPU",
+            "memory_usage_pct": "Memoria",
+        }
+
+        for threshold in thresholds:
+            value = metric_values.get(threshold.metric_name)
+            if value is None:
+                continue
+
+            label = metric_labels.get(threshold.metric_name, threshold.metric_name)
+            severity = None
+
+            if threshold.critical_value and value >= threshold.critical_value:
+                severity = IncidentSeverity.CRITICAL
+            elif threshold.warning_value and value >= threshold.warning_value:
+                severity = IncidentSeverity.WARNING
+
+            if severity:
+                # Check if there's already an open threshold incident for this device+metric
+                existing = await session.execute(
+                    select(Incident).where(
+                        Incident.device_id == device.id,
+                        Incident.title.like(f"Umbral%{label}%{device.hostname}%"),
+                        Incident.status.in_([IncidentStatus.OPEN, IncidentStatus.ACKNOWLEDGED]),
+                    )
+                )
+                if not existing.scalar_one_or_none():
+                    incident = Incident(
+                        title=f"Umbral {severity.value}: {label} en {device.hostname}",
+                        description=f"{label} = {value:.1f} (umbral warning: {threshold.warning_value}, critical: {threshold.critical_value})",
+                        severity=severity,
+                        status=IncidentStatus.OPEN,
+                        device_id=device.id,
+                        detected_at=now,
+                    )
+                    session.add(incident)
+
+                    await ws_manager.broadcast("threshold_alert", {
+                        "device_id": str(device.id),
+                        "hostname": device.hostname,
+                        "metric": threshold.metric_name,
+                        "value": value,
+                        "severity": severity.value,
+                    })
 
     async def _propagate_parent_failures(self, session: AsyncSession, devices: list):
         """Propagate DOWN status through the parent-child tree.
