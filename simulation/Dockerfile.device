@@ -1,0 +1,30 @@
+FROM alpine:3.20
+
+RUN apk add --no-cache \
+    openssh-server \
+    net-snmp \
+    net-snmp-tools \
+    bash \
+    curl \
+    iputils \
+    && mkdir -p /var/run/sshd /var/run/snmpd
+
+# SSH setup
+RUN ssh-keygen -A \
+    && echo 'PermitRootLogin yes' >> /etc/ssh/sshd_config \
+    && echo 'PasswordAuthentication yes' >> /etc/ssh/sshd_config \
+    && echo "root:admin123" | chpasswd
+
+# SNMP setup - basic v2c config
+RUN echo 'rocommunity public' > /etc/snmp/snmpd.conf \
+    && echo 'syslocation "Orbis360 Simulated Device"' >> /etc/snmp/snmpd.conf \
+    && echo 'syscontact admin@orbis360.local' >> /etc/snmp/snmpd.conf \
+    && echo 'agentaddress udp:161' >> /etc/snmp/snmpd.conf
+
+# Startup script
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+EXPOSE 22 161/udp
+
+CMD ["/entrypoint.sh"]

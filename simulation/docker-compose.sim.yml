@@ -1,0 +1,129 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# Orbis360 — Simulated Network Topology
+#
+# Cada dispositivo expone SSH y SNMP en puertos del host:
+#   Firewall:     localhost:2210 (SSH), localhost:16110 (SNMP)
+#   Core Router:  localhost:2211 (SSH), localhost:16111 (SNMP)
+#   Core Switch:  localhost:2212 (SSH), localhost:16112 (SNMP)
+#   Dist SW P2:   localhost:2220 (SSH), localhost:16120 (SNMP)
+#   Dist SW P3:   localhost:2230 (SSH), localhost:16130 (SNMP)
+#   AP P2:        localhost:2221 (SSH), localhost:16121 (SNMP)
+#   AP P3:        localhost:2231 (SSH), localhost:16131 (SNMP)
+#   Server:       localhost:2200 (SSH), localhost:16100 (SNMP)
+#
+# SSH: root / admin123
+# SNMP community: public
+# ═══════════════════════════════════════════════════════════════════════════════
+
+services:
+  sim-firewall:
+    build:
+      context: .
+      dockerfile: Dockerfile.device
+    container_name: sim-firewall-01
+    hostname: sim-firewall-01
+    environment:
+      DEVICE_NAME: sim-firewall-01
+      DEVICE_TYPE: firewall
+    ports:
+      - "2210:22"
+      - "16110:161/udp"
+    restart: unless-stopped
+
+  sim-core-router:
+    build:
+      context: .
+      dockerfile: Dockerfile.device
+    container_name: sim-core-router-01
+    hostname: sim-core-router-01
+    environment:
+      DEVICE_NAME: sim-core-router-01
+      DEVICE_TYPE: router
+    ports:
+      - "2211:22"
+      - "16111:161/udp"
+    restart: unless-stopped
+
+  sim-core-switch:
+    build:
+      context: .
+      dockerfile: Dockerfile.device
+    container_name: sim-core-switch-01
+    hostname: sim-core-switch-01
+    environment:
+      DEVICE_NAME: sim-core-switch-01
+      DEVICE_TYPE: switch
+    ports:
+      - "2212:22"
+      - "16112:161/udp"
+    restart: unless-stopped
+
+  sim-dist-switch-f2:
+    build:
+      context: .
+      dockerfile: Dockerfile.device
+    container_name: sim-dist-switch-f2
+    hostname: sim-dist-switch-f2
+    environment:
+      DEVICE_NAME: sim-dist-switch-f2
+      DEVICE_TYPE: switch
+    ports:
+      - "2220:22"
+      - "16120:161/udp"
+    restart: unless-stopped
+
+  sim-dist-switch-f3:
+    build:
+      context: .
+      dockerfile: Dockerfile.device
+    container_name: sim-dist-switch-f3
+    hostname: sim-dist-switch-f3
+    environment:
+      DEVICE_NAME: sim-dist-switch-f3
+      DEVICE_TYPE: switch
+    ports:
+      - "2230:22"
+      - "16130:161/udp"
+    restart: unless-stopped
+
+  sim-ap-f2:
+    build:
+      context: .
+      dockerfile: Dockerfile.device
+    container_name: sim-ap-f2-01
+    hostname: sim-ap-f2-01
+    environment:
+      DEVICE_NAME: sim-ap-f2-01
+      DEVICE_TYPE: access_point
+    ports:
+      - "2221:22"
+      - "16121:161/udp"
+    restart: unless-stopped
+
+  sim-ap-f3:
+    build:
+      context: .
+      dockerfile: Dockerfile.device
+    container_name: sim-ap-f3-01
+    hostname: sim-ap-f3-01
+    environment:
+      DEVICE_NAME: sim-ap-f3-01
+      DEVICE_TYPE: access_point
+    ports:
+      - "2231:22"
+      - "16131:161/udp"
+    restart: unless-stopped
+
+  sim-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.device
+    container_name: sim-server-dc-01
+    hostname: sim-server-dc-01
+    environment:
+      DEVICE_NAME: sim-server-dc-01
+      DEVICE_TYPE: server
+    ports:
+      - "2200:22"
+      - "16100:161/udp"
+    restart: unless-stopped
