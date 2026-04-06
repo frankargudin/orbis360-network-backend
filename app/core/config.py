@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     DOWN_THRESHOLD: int = 3  # consecutive failures before marking DOWN
 
     # CORS
-    CORS_ORIGINS: list[str] = ["http://localhost:4200"]
+    CORS_ORIGINS: list[str] = ["http://localhost:4200", "https://orbis360-network-frontend.vercel.app"]
 
     model_config = {"env_file": ".env", "env_prefix": "ORBIS_"}
 
