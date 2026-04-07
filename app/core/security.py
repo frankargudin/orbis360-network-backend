@@ -27,10 +27,10 @@ def verify_password(plain: str, hashed: str) -> bool:
     return bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
 
 
-def create_access_token(subject: str, role: str = "viewer") -> str:
+def create_access_token(subject: str, role: str = "viewer", username: str = "") -> str:
     settings = get_settings()
     expires = datetime.now(timezone.utc) + timedelta(minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES)
-    payload = {"sub": subject, "role": role, "exp": expires}
+    payload = {"sub": subject, "role": role, "username": username, "exp": expires}
     return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
 

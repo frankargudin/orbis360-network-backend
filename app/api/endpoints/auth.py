@@ -23,7 +23,7 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account disabled")
 
-    token = create_access_token(subject=str(user.id), role=user.role)
+    token = create_access_token(subject=str(user.id), role=user.role, username=user.username)
     return TokenResponse(access_token=token)
 
 

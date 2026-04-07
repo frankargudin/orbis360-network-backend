@@ -74,7 +74,7 @@ async def create_device(body: DeviceCreate, db: AsyncSession = Depends(get_db), 
     db.add(device)
     await db.flush()
     await db.refresh(device)
-    await log_action(db, "create", "device", str(device.id), device.hostname, f"IP: {device.ip_address}, Tipo: {device.device_type}", user.get("sub"))
+    await log_action(db, "create", "device", str(device.id), device.hostname, f"IP: {device.ip_address}, Tipo: {device.device_type}", user.get("username", user.get("sub")))
     return device
 
 
@@ -97,7 +97,7 @@ async def delete_device(device_id: UUID, db: AsyncSession = Depends(get_db), use
     device = await db.get(Device, device_id)
     if not device:
         raise HTTPException(status_code=404, detail="Device not found")
-    await log_action(db, "delete", "device", str(device.id), device.hostname, user_id=user.get("sub"))
+    await log_action(db, "delete", "device", str(device.id), device.hostname, user_id=user.get("username", user.get("sub")))
     await db.delete(device)
 
 
