@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.endpoints import auth, devices, incidents, links, locations, metrics, thresholds, topology, websocket
+from app.api.endpoints import auth, devices, incidents, links, locations, maintenance, metrics, thresholds, topology, websocket
 from app.core.config import get_settings
 from app.domain.models.base import Base
 from app.infrastructure.database.session import engine
@@ -67,6 +67,7 @@ app.include_router(links.router, prefix=API_PREFIX)
 app.include_router(locations.router, prefix=API_PREFIX)
 app.include_router(incidents.router, prefix=API_PREFIX)
 app.include_router(metrics.router, prefix=API_PREFIX)
+app.include_router(maintenance.router, prefix=API_PREFIX)
 app.include_router(thresholds.router, prefix=API_PREFIX)
 app.include_router(topology.router, prefix=API_PREFIX)
 app.include_router(websocket.router, prefix=API_PREFIX)

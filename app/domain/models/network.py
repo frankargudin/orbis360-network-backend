@@ -278,6 +278,27 @@ class AlertThreshold(Base, UUIDMixin, TimestampMixin):
     )
 
 
+# ─── Maintenance Window ────────────────────────────────────────────────────────
+
+
+class MaintenanceWindow(Base, UUIDMixin, TimestampMixin):
+    __tablename__ = "maintenance_windows"
+
+    device_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("devices.id", ondelete="CASCADE"), nullable=False
+    )
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    start_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    end_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_by: Mapped[str | None] = mapped_column(String(255))
+
+    __table_args__ = (
+        Index("ix_maint_device", "device_id"),
+        Index("ix_maint_times", "start_time", "end_time"),
+    )
+
+
 # ─── User ───────────────────────────────────────────────────────────────────────
 
 

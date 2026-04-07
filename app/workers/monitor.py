@@ -28,6 +28,7 @@ from app.domain.models.network import (
     IncidentSeverity,
     IncidentStatus,
     Link,
+    MaintenanceWindow,
     LinkStatus,
     Metric,
 )
@@ -107,6 +108,18 @@ class NetworkMonitorWorker:
             devices = result.scalars().all()
             await self._run_rca_if_needed(session, devices)
 
+    async def _is_in_maintenance(self, session: AsyncSession, device_id) -> bool:
+        """Check if device has an active maintenance window right now."""
+        now = datetime.now(timezone.utc)
+        result = await session.execute(
+            select(MaintenanceWindow).where(
+                MaintenanceWindow.device_id == device_id,
+                MaintenanceWindow.start_time <= now,
+                MaintenanceWindow.end_time >= now,
+            )
+        )
+        return result.scalar_one_or_none() is not None
+
     def _is_ancestor_down(self, device_id, device_map: dict) -> bool:
         """Walk up the parent chain. If any ancestor is DOWN, return True."""
         visited = set()
@@ -149,6 +162,14 @@ class NetworkMonitorWorker:
         # Even if SNMP responds, if an ancestor is DOWN this device is unreachable in reality
         if is_reachable and device_map and self._is_ancestor_down(device.id, device_map):
             is_reachable = False
+
+        # If device is in a maintenance window, mark as maintenance and skip alerts
+        if await self._is_in_maintenance(session, device.id):
+            if device.status != DeviceStatus.MAINTENANCE:
+                device.status = DeviceStatus.MAINTENANCE
+                device.consecutive_failures = 0
+                session.add(device)
+            return
 
         if is_reachable:
             # Device is UP — reset failure counter

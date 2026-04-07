@@ -214,6 +214,28 @@ class ThresholdOut(BaseModel):
     enabled: bool
 
 
+# ─── Maintenance Windows ───────────────────────────────────────────────────────
+
+
+class MaintenanceCreate(BaseModel):
+    device_id: UUID
+    title: str
+    description: str | None = None
+    start_time: datetime
+    end_time: datetime
+
+
+class MaintenanceOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    device_id: UUID
+    title: str
+    description: str | None
+    start_time: datetime
+    end_time: datetime
+    created_by: str | None
+
+
 # ─── SSH / Reboot ──────────────────────────────────────────────────────────────
 
 
