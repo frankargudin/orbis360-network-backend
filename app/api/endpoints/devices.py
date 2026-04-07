@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.audit import log_action
 from app.core.security import get_current_user, require_role
 from app.core.events import ws_manager
 from app.domain.models.network import Device, DeviceStatus, DeviceType, Incident, IncidentSeverity, IncidentStatus
@@ -68,11 +69,12 @@ async def get_device(device_id: UUID, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("", response_model=DeviceOut, status_code=201, dependencies=[Depends(require_role("operator"))])
-async def create_device(body: DeviceCreate, db: AsyncSession = Depends(get_db)):
+async def create_device(body: DeviceCreate, db: AsyncSession = Depends(get_db), user: dict = Depends(get_current_user)):
     device = Device(**body.model_dump())
     db.add(device)
     await db.flush()
     await db.refresh(device)
+    await log_action(db, "create", "device", str(device.id), device.hostname, f"IP: {device.ip_address}, Tipo: {device.device_type}", user.get("sub"))
     return device
 
 
@@ -91,10 +93,11 @@ async def update_device(device_id: UUID, body: DeviceUpdate, db: AsyncSession = 
 
 
 @router.delete("/{device_id}", status_code=204, dependencies=[Depends(require_role("admin"))])
-async def delete_device(device_id: UUID, db: AsyncSession = Depends(get_db)):
+async def delete_device(device_id: UUID, db: AsyncSession = Depends(get_db), user: dict = Depends(get_current_user)):
     device = await db.get(Device, device_id)
     if not device:
         raise HTTPException(status_code=404, detail="Device not found")
+    await log_action(db, "delete", "device", str(device.id), device.hostname, user_id=user.get("sub"))
     await db.delete(device)
 
 

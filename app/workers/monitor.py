@@ -12,7 +12,7 @@ False Positive Prevention Strategy:
 
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from sqlalchemy import select, update
@@ -108,6 +108,41 @@ class NetworkMonitorWorker:
             devices = result.scalars().all()
             await self._run_rca_if_needed(session, devices)
 
+    def _detect_flapping(self, device: Device, new_status_is_up: bool, now: datetime):
+        """Detect if a device is oscillating between states too frequently.
+        If state changed, increment flap_count. If flap_count exceeds threshold
+        within the time window, mark as flapping and suppress alerts.
+        Returns True if device is flapping (alerts should be suppressed).
+        """
+        current_is_up = device.status in (DeviceStatus.UP, DeviceStatus.DEGRADED)
+        state_changed = current_is_up != new_status_is_up
+
+        if state_changed:
+            # Reset flap window if last change was too long ago
+            if device.last_state_change:
+                window = timedelta(minutes=settings.FLAP_WINDOW_MINUTES)
+                if now - device.last_state_change > window:
+                    device.flap_count = 0
+
+            device.flap_count += 1
+            device.last_state_change = now
+
+            if device.flap_count >= settings.FLAP_THRESHOLD:
+                if not device.is_flapping:
+                    device.is_flapping = True
+                    logger.warning(f"Device FLAPPING: {device.hostname} — {device.flap_count} state changes in {settings.FLAP_WINDOW_MINUTES} minutes")
+                return True
+        else:
+            # No state change — if we've been stable, clear flapping
+            if device.is_flapping and device.last_state_change:
+                window = timedelta(minutes=settings.FLAP_WINDOW_MINUTES)
+                if now - device.last_state_change > window:
+                    device.is_flapping = False
+                    device.flap_count = 0
+                    logger.info(f"Device STABLE: {device.hostname} — flapping cleared")
+
+        return device.is_flapping
+
     async def _is_in_maintenance(self, session: AsyncSession, device_id) -> bool:
         """Check if device has an active maintenance window right now."""
         now = datetime.now(timezone.utc)
@@ -171,6 +206,9 @@ class NetworkMonitorWorker:
                 session.add(device)
             return
 
+        # Flapping detection — suppress alerts if device oscillates too fast
+        is_flapping = self._detect_flapping(device, is_reachable, now)
+
         if is_reachable:
             # Device is UP — reset failure counter
             device.consecutive_failures = 0
@@ -217,9 +255,9 @@ class NetworkMonitorWorker:
             if device.consecutive_failures >= settings.DOWN_THRESHOLD:
                 device.status = DeviceStatus.DOWN
 
-                if previous_status != DeviceStatus.DOWN:
-                    # New outage detected
-                    logger.warning(f"Device DOWN: {device.hostname} ({device.ip_address})")
+                if previous_status != DeviceStatus.DOWN and not is_flapping:
+                    # New outage detected (suppress if flapping)
+                    logger.warning(f"Device DOWN: {device.hostname} ({device.ip_address}){' [FLAPPING SUPPRESSED]' if is_flapping else ''}")
 
                     incident = Incident(
                         title=f"Device DOWN: {device.hostname}",

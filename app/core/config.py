@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     SNMP_POLL_INTERVAL_SECONDS: int = 60
     HEALTH_CHECK_INTERVAL_SECONDS: int = 10
     DOWN_THRESHOLD: int = 3  # consecutive failures before marking DOWN
+    FLAP_THRESHOLD: int = 5  # state changes in flap window to trigger flapping
+    FLAP_WINDOW_MINUTES: int = 10  # time window to count state changes
 
     # CORS
     CORS_ORIGINS: list[str] = ["http://localhost:4200", "https://orbis360-network-frontend.vercel.app"]

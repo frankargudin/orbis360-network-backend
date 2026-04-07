@@ -117,6 +117,9 @@ class Device(Base, UUIDMixin, TimestampMixin):
     ssh_port: Mapped[int] = mapped_column(Integer, default=22)
     is_critical: Mapped[bool] = mapped_column(Boolean, default=False)
     consecutive_failures: Mapped[int] = mapped_column(Integer, default=0)
+    is_flapping: Mapped[bool] = mapped_column(Boolean, default=False)
+    flap_count: Mapped[int] = mapped_column(Integer, default=0)
+    last_state_change: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_seen: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     metadata_json: Mapped[dict | None] = mapped_column(JSONB)
 
@@ -253,6 +256,78 @@ class Incident(Base, UUIDMixin, TimestampMixin):
         Index("ix_incidents_severity", "severity"),
         Index("ix_incidents_device", "device_id"),
         Index("ix_incidents_detected", "detected_at"),
+    )
+
+
+# ─── Audit Log ──────────────────────────────────────────────────────────────────
+
+
+class AuditLog(Base, UUIDMixin):
+    __tablename__ = "audit_log"
+
+    user_id: Mapped[str | None] = mapped_column(String(255))
+    action: Mapped[str] = mapped_column(String(50), nullable=False)  # create, update, delete, reboot, login
+    entity_type: Mapped[str] = mapped_column(String(50), nullable=False)  # device, incident, link, etc.
+    entity_id: Mapped[str | None] = mapped_column(String(255))
+    entity_name: Mapped[str | None] = mapped_column(String(255))
+    details: Mapped[str | None] = mapped_column(Text)
+    ip_address: Mapped[str | None] = mapped_column(String(45))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    __table_args__ = (
+        Index("ix_audit_created", "created_at"),
+        Index("ix_audit_entity", "entity_type", "entity_id"),
+    )
+
+
+# ─── Service Check ──────────────────────────────────────────────────────────────
+
+
+class ServiceCheckType(str, enum.Enum):
+    HTTP = "http"
+    HTTPS = "https"
+    DNS = "dns"
+    SMTP = "smtp"
+    TCP = "tcp"
+    ICMP = "icmp"
+
+
+class ServiceCheckStatus(str, enum.Enum):
+    OK = "ok"
+    WARNING = "warning"
+    CRITICAL = "critical"
+    UNKNOWN = "unknown"
+
+
+class ServiceCheck(Base, UUIDMixin, TimestampMixin):
+    __tablename__ = "service_checks"
+
+    device_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("devices.id", ondelete="CASCADE"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    check_type: Mapped[ServiceCheckType] = mapped_column(
+        Enum(ServiceCheckType, name="service_check_type", create_type=False, values_callable=lambda e: [x.value for x in e]),
+        nullable=False,
+    )
+    target: Mapped[str] = mapped_column(String(500), nullable=False)
+    port: Mapped[int | None] = mapped_column(Integer)
+    expected_status: Mapped[int | None] = mapped_column(Integer)
+    timeout_seconds: Mapped[int] = mapped_column(Integer, default=5)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    status: Mapped[ServiceCheckStatus] = mapped_column(
+        Enum(ServiceCheckStatus, name="service_check_status", create_type=False, values_callable=lambda e: [x.value for x in e]),
+        default=ServiceCheckStatus.UNKNOWN,
+    )
+    last_check: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_response_ms: Mapped[float | None] = mapped_column(Float)
+    last_error: Mapped[str | None] = mapped_column(Text)
+    consecutive_failures: Mapped[int] = mapped_column(Integer, default=0)
+
+    __table_args__ = (
+        Index("ix_svc_device", "device_id"),
     )
 
 
