@@ -25,8 +25,21 @@ async def init_db():
     # Import all models so they register with Base.metadata
     from app.domain.models import network  # noqa: F401
 
+    from sqlalchemy import text
+
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+        # Add columns that may be missing from older table schemas
+        migrations = [
+            ("devices", "is_flapping", "BOOLEAN NOT NULL DEFAULT FALSE"),
+            ("devices", "flap_count", "INTEGER NOT NULL DEFAULT 0"),
+        ]
+        for table, column, col_type in migrations:
+            await conn.execute(text(
+                f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} {col_type}"
+            ))
+
     logger.info("Database tables verified/created")
 
 
