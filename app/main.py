@@ -32,8 +32,14 @@ async def init_db():
 
         # Add columns that may be missing from older table schemas
         migrations = [
+            ("devices", "is_critical", "BOOLEAN NOT NULL DEFAULT FALSE"),
+            ("devices", "consecutive_failures", "INTEGER NOT NULL DEFAULT 0"),
             ("devices", "is_flapping", "BOOLEAN NOT NULL DEFAULT FALSE"),
             ("devices", "flap_count", "INTEGER NOT NULL DEFAULT 0"),
+            ("devices", "last_state_change", "TIMESTAMPTZ"),
+            ("devices", "last_seen", "TIMESTAMPTZ"),
+            ("devices", "metadata_json", "JSONB"),
+            ("devices", "parent_device_id", "UUID REFERENCES devices(id)"),
         ]
         for table, column, col_type in migrations:
             await conn.execute(text(
